@@ -2,6 +2,7 @@ let container = null;
 let shadowRoot = null;
 let pollTimer = null;
 let enabled = false;
+let useBytes = false; // unit preference from the popup: false = Mbps, true = MB/s
 let isDragging = false;
 let dragOffsetX = 0, dragOffsetY = 0;
 
@@ -102,7 +103,7 @@ function createOverlay() {
       <div id="spd">--</div>
       <div id="unit">Mbps</div>
       <div id="extra">
-        <div class="stat">↑ <span id="up">--</span> Mbps</div>
+        <div class="stat">↑ <span id="up">--</span> <i id="upunit" style="font-style:normal">Mbps</i></div>
         <div class="stat">ping <span id="ping">--</span> ms</div>
       </div>
     </div>`;
@@ -125,6 +126,13 @@ function dotColor(speed) {
   return '#f87171';
 }
 
+// Mbps -> { display, unit } in MB/s (or KB/s when below 1 MB/s)
+function toBytesSpeed(mbps) {
+  const mbs = mbps / 8;
+  if (mbs >= 1) return { display: mbs >= 10 ? mbs.toFixed(1) : mbs.toFixed(2), unit: 'MB/s' };
+  return { display: Math.round(mbs * 1000).toString(), unit: 'KB/s' };
+}
+
 function update(data) {
   if (!shadowRoot) return;
   const elSpd  = shadowRoot.getElementById('spd');
@@ -132,6 +140,7 @@ function update(data) {
   const elDot  = shadowRoot.getElementById('dot');
   const elUp   = shadowRoot.getElementById('up');
   const elPing = shadowRoot.getElementById('ping');
+  const elUpUnit = shadowRoot.getElementById('upunit');
   if (!elSpd) return;
 
   const v = data.speed || '--';
@@ -141,10 +150,14 @@ function update(data) {
     elUnit.textContent = '';
   } else if (v === '--') {
     elSpd.textContent = data.isTestingInProgress ? '…' : '--';
-    elUnit.textContent = 'Mbps';
+    elUnit.textContent = useBytes ? 'MB/s' : 'Mbps';
   } else {
     const n = parseFloat(v);
-    if (!isNaN(n) && n < 1) {
+    if (useBytes && !isNaN(n)) {
+      const f = toBytesSpeed(n);
+      elSpd.textContent = f.display;
+      elUnit.textContent = f.unit;
+    } else if (!isNaN(n) && n < 1) {
       elSpd.textContent = Math.round(n * 1000).toString();
       elUnit.textContent = 'Kbps';
     } else {
@@ -154,7 +167,17 @@ function update(data) {
   }
 
   elDot.style.background = dotColor(v);
-  if (elUp)   elUp.textContent   = data.upload && data.upload !== '--' ? data.upload : '--';
+  if (elUp) {
+    const up = data.upload && data.upload !== '--' ? data.upload : '--';
+    if (up !== '--' && useBytes) {
+      const f = toBytesSpeed(parseFloat(up) || 0);
+      elUp.textContent = f.display;
+      if (elUpUnit) elUpUnit.textContent = f.unit;
+    } else {
+      elUp.textContent = up;
+      if (elUpUnit) elUpUnit.textContent = useBytes ? 'MB/s' : 'Mbps';
+    }
+  }
   if (elPing) elPing.textContent = data.ping   && data.ping   !== '--' ? data.ping   : '--';
 }
 
@@ -229,8 +252,9 @@ function fetchSpeed(cb) {
 function checkOverlayEnabled(cb) {
   if (!isContextValid()) { cb(false); return; }
   try {
-    chrome.storage.local.get('overlayEnabled', (result) => {
+    chrome.storage.local.get(['overlayEnabled', 'speedUnit'], (result) => {
       if (chrome.runtime.lastError) { cb(false); return; }
+      useBytes = result.speedUnit === 'MBps';
       cb(result.overlayEnabled !== false);
     });
   } catch (_) { cb(false); }

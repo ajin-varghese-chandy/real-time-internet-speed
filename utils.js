@@ -70,9 +70,20 @@ function formatSpeed(speedMbps) {
   return speedMbps.toFixed(3);
 }
 
-function formatSpeedForDisplay(speedString) {
+// Speeds are measured and stored in megabits per second (Mbps). Many people
+// expect download managers / browsers to show megabytes per second (MB/s),
+// which is Mbps / 8, so the UI lets the user pick either unit.
+function formatBytesSpeed(speedMbps) {
+  const mbs = speedMbps / 8;
+  if (mbs >= 1) {
+    return { display: mbs >= 10 ? mbs.toFixed(1) : mbs.toFixed(2), unit: 'MB/s' };
+  }
+  return { display: Math.round(mbs * 1000).toString(), unit: 'KB/s' };
+}
+
+function formatSpeedForDisplay(speedString, useBytes = false) {
   if (speedString === '--' || speedString === 'Err') {
-    return { display: speedString, unit: 'Mbps', isError: speedString === 'Err' };
+    return { display: speedString, unit: useBytes ? 'MB/s' : 'Mbps', isError: speedString === 'Err' };
   }
 
   if (speedString === 'Off') {
@@ -80,6 +91,10 @@ function formatSpeedForDisplay(speedString) {
   }
 
   const speed = parseFloat(speedString) || 0;
+
+  if (useBytes) {
+    return { ...formatBytesSpeed(speed), isError: false };
+  }
 
   if (speed >= 1) {
     return {
@@ -119,7 +134,12 @@ function calculateSpeedMbps(bytes, durationSeconds) {
   return (bytes * 8) / (durationSeconds * 1e6);
 }
 
-function formatBadgeText(finalSpeed, latestSpeedStr) {
+function formatBadgeText(finalSpeed, latestSpeedStr, useBytes = false) {
+  if (useBytes) {
+    const mbs = finalSpeed / 8;
+    if (mbs >= 1) return (mbs >= 10 ? mbs.toFixed(0) : mbs.toFixed(1)) + 'MB';
+    return Math.round(mbs * 1000) + 'KB';
+  }
   return finalSpeed >= 1 ? latestSpeedStr + 'M' : Math.round(finalSpeed * 1000) + 'K';
 }
 
@@ -139,6 +159,7 @@ if (typeof module !== 'undefined' && module.exports) {
     hasStableResults,
     determineConnectionType,
     formatSpeed,
+    formatBytesSpeed,
     formatSpeedForDisplay,
     getTestIntervalFromHistory,
     calculateJitter,

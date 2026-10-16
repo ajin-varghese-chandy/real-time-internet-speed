@@ -16,6 +16,7 @@ An advanced Chrome extension that provides accurate real-time internet speed mon
 - **Real-Time Updates**: Live speed monitoring with smooth animations
 - **Speed History Graph**: Visual representation of recent speed measurements
 - **Manual Testing**: Force immediate speed tests with the "Test Now" button
+- **Mbps / MB/s Toggle**: Switch between megabits per second (Mbps) and megabytes per second (MB/s, = Mbps ÷ 8) from the popup; applies to the popup, toolbar badge, page overlay and history graph labels
 - **Adaptive Intervals**: Testing frequency adjusts based on connection stability
 - **Error Handling**: Graceful fallback to alternative test sources
 

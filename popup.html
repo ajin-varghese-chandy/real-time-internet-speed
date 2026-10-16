@@ -33,6 +33,7 @@
             border-bottom: 1px solid rgba(255,255,255,0.12);
         }
 
+        .top-actions { display: flex; gap: 6px; }
         .app-title {
             font-size: 0.65rem;
             font-weight: 600;
@@ -41,7 +42,7 @@
             color: rgba(255,255,255,0.55);
         }
 
-        #pin-btn {
+        #pin-btn, #unit-btn {
             background: rgba(255,255,255,0.1);
             border: 1px solid rgba(255,255,255,0.2);
             color: rgba(255,255,255,0.7);
@@ -51,7 +52,7 @@
             cursor: pointer;
             transition: all 0.2s;
         }
-        #pin-btn:hover {
+        #pin-btn:hover, #unit-btn:hover {
             background: rgba(255,255,255,0.2);
             color: #fff;
         }
@@ -465,7 +466,10 @@
     <div id="main">
         <div class="top-bar">
             <span class="app-title">Internet Speed Monitor</span>
-            <button id="pin-btn" title="Pin extension to toolbar">📌 Pin</button>
+            <div class="top-actions">
+                <button id="unit-btn" title="Switch to MB/s (megabytes per second)">Mbps</button>
+                <button id="pin-btn" title="Pin extension to toolbar">📌 Pin</button>
+            </div>
         </div>
 
         <div class="speed-hero">

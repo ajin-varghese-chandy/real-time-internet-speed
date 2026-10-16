@@ -1,5 +1,19 @@
 importScripts('./utils.js');
 
+// Unit preference (set from the popup): false = Mbps, true = MB/s
+let useBytes = false;
+let lastFinalSpeed = null; // last measured speed in Mbps, used to redraw the badge
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local' || !changes.speedUnit) return;
+  useBytes = changes.speedUnit.newValue === 'MBps';
+  if (lastFinalSpeed !== null) {
+    chrome.action.setBadgeText({
+      text: formatBadgeText(lastFinalSpeed, formatSpeed(lastFinalSpeed), useBytes)
+    });
+  }
+});
+
 let latestSpeed = '--';
 let latestUpload = '--';
 let latestPing = '--';
@@ -353,7 +367,12 @@ async function performSpeedTest() {
     latestPing = ping !== null ? ping.toString() : '--';
     latestJitter = jitter !== null ? jitter.toString() : '--';
 
-    const badgeText = formatBadgeText(finalSpeed, latestSpeed);
+    try {
+      const stored = await chrome.storage.local.get('speedUnit');
+      useBytes = stored.speedUnit === 'MBps';
+    } catch (_) {}
+    lastFinalSpeed = finalSpeed;
+    const badgeText = formatBadgeText(finalSpeed, latestSpeed, useBytes);
     chrome.action.setBadgeText({ text: badgeText });
     chrome.action.setBadgeBackgroundColor({ color: '#0058cc' });
     isTestingInProgress = false;
@@ -362,6 +381,7 @@ async function performSpeedTest() {
   } catch (error) {
     console.error('Speed test failed:', error);
     latestSpeed = 'Err';
+    lastFinalSpeed = null;
     latestUpload = '--';
     latestPing = 'Err';
     latestJitter = 'Err';

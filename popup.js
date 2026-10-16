@@ -4,8 +4,34 @@ let currentPing = '--';
 let currentJitter = '--';
 let speedHistory = [];
 let isTestingInProgress = false;
+let useBytes = false;      // false = Mbps (megabits/s), true = MB/s (megabytes/s)
+let lastSpeedData = null;
+
+function renderUpload(raw) {
+  const el = document.getElementById('upload-speed');
+  const unitEl = document.getElementById('upload-unit');
+  if (!el) return;
+  if (!useBytes || raw === '--' || raw == null) {
+    el.innerText = raw == null ? '--' : raw;
+    if (unitEl) unitEl.innerText = useBytes ? 'MB/s' : 'Mbps';
+    return;
+  }
+  const f = formatBytesSpeed(parseFloat(raw) || 0);
+  el.innerText = f.display;
+  if (unitEl) unitEl.innerText = f.unit;
+}
+
+function applyUnitButton() {
+  const btn = document.getElementById('unit-btn');
+  if (!btn) return;
+  btn.innerText = useBytes ? 'MB/s' : 'Mbps';
+  btn.title = useBytes
+    ? 'Showing megabytes per second — click for Mbps (megabits per second)'
+    : 'Showing megabits per second — click for MB/s (megabytes per second)';
+}
 
 function updateSpeedDisplay(speedData) {
+  lastSpeedData = speedData;
   const speedElement = document.getElementById('speed');
   const unitElement = document.getElementById('unit');
   const uploadSpeedElement = document.getElementById('upload-speed');
@@ -19,7 +45,7 @@ function updateSpeedDisplay(speedData) {
   if (!speedData || !speedData.speed) {
     console.error('Failed to retrieve speed data.');
     speedElement.innerText = '--';
-    unitElement.innerText = 'Mbps';
+    unitElement.innerText = useBytes ? 'MB/s' : 'Mbps';
     if (uploadSpeedElement) uploadSpeedElement.innerText = '--';
     if (pingElement) pingElement.innerText = '--';
     if (jitterElement) jitterElement.innerText = '--';
@@ -34,7 +60,7 @@ function updateSpeedDisplay(speedData) {
   speedHistory = speedData.history || [];
   isTestingInProgress = speedData.isTestingInProgress || false;
 
-  const formatted = formatSpeedForDisplay(speedData.speed);
+  const formatted = formatSpeedForDisplay(speedData.speed, useBytes);
 
   // Update main display
   speedElement.classList.remove('loading-text', 'error-text');
@@ -64,13 +90,13 @@ function updateSpeedDisplay(speedData) {
     speedElement.classList.add('loading-text');
     speedElement.innerText = formatted.display;
     unitElement.innerText = formatted.unit;
-    if (uploadSpeedElement) uploadSpeedElement.innerText = currentUpload;
+    renderUpload(currentUpload);
     if (pingElement) pingElement.innerText = currentPing;
     if (jitterElement) jitterElement.innerText = currentJitter;
   } else {
     speedElement.innerText = formatted.display;
     unitElement.innerText = formatted.unit;
-    if (uploadSpeedElement) uploadSpeedElement.innerText = currentUpload;
+    renderUpload(currentUpload);
     if (pingElement) pingElement.innerText = currentPing;
     if (jitterElement) jitterElement.innerText = currentJitter;
   }
@@ -148,7 +174,8 @@ function updateSpeedGraph() {
   const line = el('polyline', { points: pts, fill: 'none', stroke: '#ffd700', 'stroke-width': '1.5', 'stroke-linejoin': 'round', 'stroke-linecap': 'round' });
   const dot = el('circle', { cx: lastX, cy: lastY, r: '3', fill: '#ffd700' });
 
-  const fmt = v => v >= 100 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : (v * 1000).toFixed(0) + 'K';
+  const div = useBytes ? 8 : 1;
+  const fmt = raw => { const v = raw / div; return v >= 100 ? v.toFixed(0) : v >= 1 ? v.toFixed(1) : (v * 1000).toFixed(0) + 'K'; };
   const labelMax = el('text', { x: '0', y: (PAD.top + 4).toFixed(1), class: 'chart-label', 'text-anchor': 'start' });
   labelMax.textContent = fmt(max);
   const labelMin = el('text', { x: '0', y: (H - 4).toFixed(1), class: 'chart-label', 'text-anchor': 'start' });
@@ -219,6 +246,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const testButton = document.getElementById('testButton');
   if (testButton) {
     testButton.addEventListener('click', forceSpeedTest);
+  }
+
+  // Unit toggle (Mbps <-> MB/s), persisted across popup opens
+  const unitButton = document.getElementById('unit-btn');
+  if (unitButton) {
+    chrome.storage.local.get('speedUnit', (result) => {
+      useBytes = result.speedUnit === 'MBps';
+      applyUnitButton();
+      if (lastSpeedData) updateSpeedDisplay(lastSpeedData);
+    });
+    unitButton.addEventListener('click', () => {
+      useBytes = !useBytes;
+      applyUnitButton();
+      chrome.storage.local.set({ speedUnit: useBytes ? 'MBps' : 'Mbps' });
+      if (lastSpeedData) updateSpeedDisplay(lastSpeedData);
+    });
   }
 
   // Add pin button functionality

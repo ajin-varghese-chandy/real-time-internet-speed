@@ -9,6 +9,7 @@ const {
   hasStableResults,
   determineConnectionType,
   formatSpeed,
+  formatBytesSpeed,
   formatSpeedForDisplay,
   getTestIntervalFromHistory,
   calculateJitter,
@@ -421,6 +422,40 @@ describe('formatSpeedForDisplay', () => {
   });
 });
 
+describe('formatBytesSpeed', () => {
+  it('divides Mbps by 8 to get MB/s', () => {
+    expect(formatBytesSpeed(80)).toEqual({ display: '10.0', unit: 'MB/s' });
+    expect(formatBytesSpeed(40)).toEqual({ display: '5.00', unit: 'MB/s' });
+  });
+
+  it('boundary: 8 Mbps is exactly 1 MB/s', () => {
+    expect(formatBytesSpeed(8)).toEqual({ display: '1.00', unit: 'MB/s' });
+  });
+
+  it('shows KB/s below 1 MB/s', () => {
+    expect(formatBytesSpeed(4)).toEqual({ display: '500', unit: 'KB/s' });
+  });
+});
+
+describe('formatSpeedForDisplay (MB/s mode)', () => {
+  it('converts a measured Mbps string to MB/s', () => {
+    expect(formatSpeedForDisplay('100', true)).toEqual({ display: '12.5', unit: 'MB/s', isError: false });
+  });
+
+  it('placeholder and error rows use the MB/s unit label', () => {
+    expect(formatSpeedForDisplay('--', true).unit).toBe('MB/s');
+    expect(formatSpeedForDisplay('Err', true)).toEqual({ display: 'Err', unit: 'MB/s', isError: true });
+  });
+
+  it('offline is unchanged', () => {
+    expect(formatSpeedForDisplay('Off', true).isOffline).toBe(true);
+  });
+
+  it('default (no flag) still reports Mbps', () => {
+    expect(formatSpeedForDisplay('100').unit).toBe('Mbps');
+  });
+});
+
 // ---------------------------------------------------------------------------
 // getTestIntervalFromHistory
 // ---------------------------------------------------------------------------
@@ -564,6 +599,15 @@ describe('formatBadgeText', () => {
 
   it('handles very small speeds in Kbps', () => {
     expect(formatBadgeText(0.001, '0.001')).toBe('1K');
+  });
+
+  it('MB/s mode: converts to megabytes with MB suffix', () => {
+    expect(formatBadgeText(100, '100', true)).toBe('13MB');
+    expect(formatBadgeText(40, '40.0', true)).toBe('5.0MB');
+  });
+
+  it('MB/s mode: sub-1 MB/s uses KB suffix', () => {
+    expect(formatBadgeText(4, '4.00', true)).toBe('500KB');
   });
 });
 
